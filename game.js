@@ -101,7 +101,11 @@ class BeeGame {
 
         this.updateBeePosition();
         this.sounds.playMoveSound();
-        this.checkCollisions();
+
+        // Immediate collision check after movement for better responsiveness
+        if (this.isPlaying && !this.isPaused) {
+            this.checkCollisions();
+        }
     }
 
     moveBee(e) {
@@ -115,9 +119,10 @@ class BeeGame {
         const weatherEffect = this.enhancements.weatherEffects[this.enhancements.currentWeather];
         const speedMultiplier = weatherEffect.speedMultiplier * this.enhancements.upgrades.speed.multiplier;
 
-        // Move towards target with weather-adjusted speed
-        this.beePosition.x += (targetX - this.beePosition.x) * 0.2 * speedMultiplier;
-        this.beePosition.y += (targetY - this.beePosition.y) * 0.2 * speedMultiplier;
+        // More direct movement with higher interpolation for better responsiveness
+        const interpolationFactor = 0.4; // Increased from 0.2 for faster response
+        this.beePosition.x += (targetX - this.beePosition.x) * interpolationFactor * speedMultiplier;
+        this.beePosition.y += (targetY - this.beePosition.y) * interpolationFactor * speedMultiplier;
 
         // Keep bee within bounds
         this.beePosition.x = Math.max(0, Math.min(gameRect.width - 40, this.beePosition.x));
@@ -125,7 +130,11 @@ class BeeGame {
 
         this.updateBeePosition();
         this.sounds.playMoveSound();
-        this.checkCollisions();
+
+        // Immediate collision check after movement for better responsiveness
+        if (this.isPlaying && !this.isPaused) {
+            this.checkCollisions();
+        }
     }
 
     updateBeePosition() {
@@ -210,13 +219,13 @@ class BeeGame {
             }
         }, 1000);
 
-        // Check collisions frequently
+        // Check collisions more frequently for better responsiveness
         this.collisionInterval = setInterval(() => {
             if (!this.isPaused) {
                 this.checkCollisions();
                 this.enhancements.checkPredatorCollisions();
             }
-        }, 100);
+        }, 50); // Reduced from 100ms to 50ms for better detection
 
         // Create pollen trails
         this.trailInterval = setInterval(() => {
@@ -279,24 +288,33 @@ class BeeGame {
     }
 
     checkCollisions() {
-        // Check flower collisions (with magnet)
+        // Check flower collisions (with enhanced magnet and collection)
         this.flowers.forEach((flower, index) => {
             const magnetRadius = this.enhancements.upgrades.magnet.radius;
             const distance = this.getDistance(this.bee, flower);
 
+            // Enhanced collection - easier to catch flowers
             if (distance < magnetRadius) {
-                // Apply magnet pull
-                if (distance > 40) {
-                    this.applyMagnetPull(flower);
-                } else if (this.isColliding(this.bee, flower)) {
+                if (distance > 50) {
+                    // Stronger magnet pull for better collection
+                    this.applyMagnetPull(flower, 0.3); // Increased pull strength
+                } else {
+                    // Auto-collect when close enough
                     this.collectFlower(flower, index);
+                    return; // Skip to next flower
                 }
+            }
+
+            // Fallback collision detection (more generous)
+            if (this.isColliding(this.bee, flower) || distance < 45) {
+                this.collectFlower(flower, index);
             }
         });
 
-        // Check power-up collisions
+        // Check power-up collisions (also more generous)
         this.powerUps.forEach((powerUp, index) => {
-            if (this.isColliding(this.bee, powerUp)) {
+            const powerUpDistance = this.getDistance(this.bee, powerUp);
+            if (this.isColliding(this.bee, powerUp) || powerUpDistance < 45) {
                 this.collectPowerUp(powerUp, index);
             }
         });
@@ -312,11 +330,10 @@ class BeeGame {
         return Math.sqrt(dx * dx + dy * dy);
     }
 
-    applyMagnetPull(flower) {
+    applyMagnetPull(flower, pullStrength = 0.2) {
         const flowerRect = flower.getBoundingClientRect();
         const beeRect = this.bee.getBoundingClientRect();
 
-        const pullStrength = 0.1;
         const dx = (beeRect.left + beeRect.width / 2) - (flowerRect.left + flowerRect.width / 2);
         const dy = (beeRect.top + beeRect.height / 2) - (flowerRect.top + flowerRect.height / 2);
 
@@ -326,6 +343,12 @@ class BeeGame {
 
         flower.style.left = newX + 'px';
         flower.style.top = newY + 'px';
+
+        // Smooth transition for visual appeal
+        flower.style.transition = 'all 0.1s ease-out';
+        setTimeout(() => {
+            flower.style.transition = '';
+        }, 100);
     }
 
     showToast(message, type = 'success') {

@@ -27,7 +27,7 @@ class GameEnhancements {
         this.nectar = 0;
         this.upgrades = {
             speed: { level: 1, cost: 10, multiplier: 1.2 },
-            magnet: { level: 1, cost: 15, radius: 50 },
+            magnet: { level: 1, cost: 15, radius: 70 }, // Increased starting radius
             shield: { level: 0, cost: 20, duration: 0 }
         };
 
@@ -224,10 +224,10 @@ class GameEnhancements {
         const upgrade = this.upgrades.magnet;
         if (this.spendNectar(upgrade.cost)) {
             upgrade.level++;
-            upgrade.radius += 20;
+            upgrade.radius += 30; // Increased from 20 to 30 for better effect
             upgrade.cost = Math.floor(upgrade.cost * 1.6);
             this.updateUpgradeDisplay();
-            this.game.showToast('🧲 Magnet Upgraded!', 'success');
+            this.game.showToast(`🧲 Magnet Upgraded! Radius: ${upgrade.radius}px`, 'success');
             this.game.sounds.playPowerUpSound();
         } else {
             this.game.showToast('Not enough nectar!', 'error');
