@@ -12,6 +12,7 @@ class BeeGame {
 
         this.initializeElements();
         this.initializeTelegram();
+        this.initializeSounds();
         this.bindEvents();
         this.loadHighScore();
     }
@@ -42,6 +43,10 @@ class BeeGame {
                 console.log('Player:', this.username);
             }
         }
+    }
+
+    initializeSounds() {
+        this.sounds = new SoundManager();
     }
 
     bindEvents() {
@@ -100,6 +105,7 @@ class BeeGame {
         this.beePosition.y = Math.max(0, Math.min(gameRect.height - 40, this.beePosition.y));
 
         this.updateBeePosition();
+        this.sounds.playMoveSound();
         this.checkCollisions();
     }
 
@@ -115,6 +121,7 @@ class BeeGame {
         this.isPlaying = true;
         this.isPaused = false;
 
+        this.sounds.playStartSound();
         this.updateDisplay();
         this.startBtn.style.display = 'none';
         this.pauseBtn.style.display = 'block';
@@ -137,6 +144,11 @@ class BeeGame {
             if (!this.isPaused) {
                 this.timeLeft--;
                 this.timerElement.textContent = this.timeLeft;
+
+                // Warning sound when time is low (last 10 seconds, every 3 seconds)
+                if (this.timeLeft <= 10 && this.timeLeft > 0 && this.timeLeft % 3 === 0) {
+                    this.sounds.playTimerSound();
+                }
 
                 if (this.timeLeft <= 0) {
                     this.endGame();
@@ -230,6 +242,7 @@ class BeeGame {
 
     collectFlower(flower, index) {
         flower.classList.add('collected');
+        this.sounds.playCollectSound();
 
         // Different flowers give different points
         const flowerPoints = {
@@ -246,6 +259,7 @@ class BeeGame {
         // Bonus honey every 50 points
         if (this.score % 50 === 0) {
             this.honey++;
+            this.sounds.playHoneySound();
             this.createHoneyDrop();
         }
 
@@ -258,9 +272,11 @@ class BeeGame {
     }
 
     collectPowerUp(powerUp, index) {
+        this.sounds.playPowerUpSound();
+
         const powerUpEffects = {
             '⭐': () => { this.score += 30; this.showEffect('+30 points!'); },
-            '🍯': () => { this.honey += 3; this.showEffect('+3 honey!'); },
+            '🍯': () => { this.honey += 3; this.sounds.playHoneySound(); this.showEffect('+3 honey!'); },
             '💫': () => { this.timeLeft += 10; this.showEffect('+10 seconds!'); },
             '🎯': () => { this.score += 50; this.showEffect('BONUS +50!'); }
         };
@@ -319,6 +335,7 @@ class BeeGame {
 
     endGame() {
         this.isPlaying = false;
+        this.sounds.playGameOverSound();
 
         // Clear intervals
         clearInterval(this.flowerInterval);
