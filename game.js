@@ -13,6 +13,7 @@ class BeeGame {
         this.initializeElements();
         this.initializeTelegram();
         this.initializeSounds();
+        this.initializeEnhancements();
         this.bindEvents();
         this.loadHighScore();
     }
@@ -49,8 +50,14 @@ class BeeGame {
         this.sounds = new SoundManager();
     }
 
+    initializeEnhancements() {
+        this.enhancements = new GameEnhancements(this);
+    }
+
     bindEvents() {
-        this.startBtn.addEventListener('click', () => this.startGame());
+        this.startBtn.addEventListener('click', () => {
+            this.enhancements.showModeSelection();
+        });
         this.pauseBtn.addEventListener('click', () => this.togglePause());
 
         // Touch/Mouse controls
@@ -67,7 +74,10 @@ class BeeGame {
     handleKeyboard(e) {
         if (!this.isPlaying || this.isPaused) return;
 
-        const step = 30;
+        // Apply weather effects to movement
+        const weatherEffect = this.enhancements.weatherEffects[this.enhancements.currentWeather];
+        const speedMultiplier = weatherEffect.speedMultiplier * this.enhancements.upgrades.speed.multiplier;
+        const step = 30 * speedMultiplier;
         const gameRect = this.gameArea.getBoundingClientRect();
 
         switch(e.key) {
@@ -90,6 +100,7 @@ class BeeGame {
         }
 
         this.updateBeePosition();
+        this.sounds.playMoveSound();
         this.checkCollisions();
     }
 
@@ -97,8 +108,16 @@ class BeeGame {
         if (!this.isPlaying || this.isPaused) return;
 
         const gameRect = this.gameArea.getBoundingClientRect();
-        this.beePosition.x = e.clientX - gameRect.left - 20;
-        this.beePosition.y = e.clientY - gameRect.top - 20;
+        const targetX = e.clientX - gameRect.left - 20;
+        const targetY = e.clientY - gameRect.top - 20;
+
+        // Apply weather effects to movement
+        const weatherEffect = this.enhancements.weatherEffects[this.enhancements.currentWeather];
+        const speedMultiplier = weatherEffect.speedMultiplier * this.enhancements.upgrades.speed.multiplier;
+
+        // Move towards target with weather-adjusted speed
+        this.beePosition.x += (targetX - this.beePosition.x) * 0.2 * speedMultiplier;
+        this.beePosition.y += (targetY - this.beePosition.y) * 0.2 * speedMultiplier;
 
         // Keep bee within bounds
         this.beePosition.x = Math.max(0, Math.min(gameRect.width - 40, this.beePosition.x));
@@ -117,9 +136,21 @@ class BeeGame {
     startGame() {
         this.score = 0;
         this.honey = 0;
-        this.timeLeft = 60;
         this.isPlaying = true;
         this.isPaused = false;
+
+        // Reset enhancements
+        this.enhancements.reset();
+
+        // Apply mode-specific settings
+        const settings = this.enhancements.modeSettings[this.enhancements.currentMode];
+        this.timeLeft = settings.timeLimit || 60;
+
+        // Show/hide hive button based on mode
+        const hiveBtn = document.getElementById('hiveBtn');
+        if (this.enhancements.currentMode === 'survival') {
+            hiveBtn.style.display = 'inline-block';
+        }
 
         this.sounds.playStartSound();
         this.updateDisplay();
@@ -139,9 +170,32 @@ class BeeGame {
             if (!this.isPaused && Math.random() > 0.7) this.spawnPowerUp();
         }, 5000);
 
+        // Start weather events
+        this.weatherInterval = setInterval(() => {
+            if (!this.isPaused) this.enhancements.changeWeather();
+        }, 15000);
+
+        // Start predator spawning
+        this.predatorInterval = setInterval(() => {
+            if (!this.isPaused) this.enhancements.spawnPredator();
+        }, 8000);
+
+        // Start wind gusts
+        this.windInterval = setInterval(() => {
+            if (!this.isPaused && Math.random() > 0.7) {
+                this.enhancements.createWindGust();
+            }
+        }, 10000);
+
         // Start timer
         this.timerInterval = setInterval(() => {
             if (!this.isPaused) {
+                // Update energy
+                this.enhancements.updateEnergy();
+
+                // Apply wind gusts
+                this.enhancements.applyWindGust();
+
                 this.timeLeft--;
                 this.timerElement.textContent = this.timeLeft;
 
@@ -158,8 +212,18 @@ class BeeGame {
 
         // Check collisions frequently
         this.collisionInterval = setInterval(() => {
-            if (!this.isPaused) this.checkCollisions();
+            if (!this.isPaused) {
+                this.checkCollisions();
+                this.enhancements.checkPredatorCollisions();
+            }
         }, 100);
+
+        // Create pollen trails
+        this.trailInterval = setInterval(() => {
+            if (!this.isPaused) {
+                this.enhancements.createPollenTrail();
+            }
+        }, 200);
     }
 
     togglePause() {
@@ -215,10 +279,18 @@ class BeeGame {
     }
 
     checkCollisions() {
-        // Check flower collisions
+        // Check flower collisions (with magnet)
         this.flowers.forEach((flower, index) => {
-            if (this.isColliding(this.bee, flower)) {
-                this.collectFlower(flower, index);
+            const magnetRadius = this.enhancements.upgrades.magnet.radius;
+            const distance = this.getDistance(this.bee, flower);
+
+            if (distance < magnetRadius) {
+                // Apply magnet pull
+                if (distance > 40) {
+                    this.applyMagnetPull(flower);
+                } else if (this.isColliding(this.bee, flower)) {
+                    this.collectFlower(flower, index);
+                }
             }
         });
 
@@ -228,6 +300,45 @@ class BeeGame {
                 this.collectPowerUp(powerUp, index);
             }
         });
+    }
+
+    getDistance(element1, element2) {
+        const rect1 = element1.getBoundingClientRect();
+        const rect2 = element2.getBoundingClientRect();
+
+        const dx = (rect1.left + rect1.width / 2) - (rect2.left + rect2.width / 2);
+        const dy = (rect1.top + rect1.height / 2) - (rect2.top + rect2.height / 2);
+
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    applyMagnetPull(flower) {
+        const flowerRect = flower.getBoundingClientRect();
+        const beeRect = this.bee.getBoundingClientRect();
+
+        const pullStrength = 0.1;
+        const dx = (beeRect.left + beeRect.width / 2) - (flowerRect.left + flowerRect.width / 2);
+        const dy = (beeRect.top + beeRect.height / 2) - (flowerRect.top + flowerRect.height / 2);
+
+        const gameAreaRect = this.gameArea.getBoundingClientRect();
+        const newX = parseInt(flower.style.left) + dx * pullStrength;
+        const newY = parseInt(flower.style.top) + dy * pullStrength;
+
+        flower.style.left = newX + 'px';
+        flower.style.top = newY + 'px';
+    }
+
+    showToast(message, type = 'success') {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        this.gameArea.appendChild(toast);
+
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.remove();
+            }
+        }, 3000);
     }
 
     isColliding(element1, element2) {
@@ -253,8 +364,30 @@ class BeeGame {
             '🌹': 25
         };
 
-        const points = flowerPoints[flower.textContent] || 10;
+        // Get flower color for combo system
+        const flowerColor = this.getFlowerColor(flower.textContent);
+        this.enhancements.updateCombo(flowerColor);
+
+        let points = flowerPoints[flower.textContent] || 10;
+        points = Math.floor(points * this.enhancements.getComboMultiplier());
+
+        // Apply speed multiplier
+        points = Math.floor(points * this.enhancements.upgrades.speed.multiplier);
+
         this.score += points;
+
+        // Add nectar
+        const nectarAmount = Math.floor(points / 10);
+        this.enhancements.addNectar(nectarAmount);
+
+        // Energy restoration for certain flowers
+        if (['🌺', '🌹'].includes(flower.textContent)) {
+            this.enhancements.restoreEnergy(5);
+        }
+
+        // Update challenges
+        this.enhancements.updateChallengeProgress('collect_flowers');
+        this.enhancements.updateChallengeProgress('collect_nectar', nectarAmount);
 
         // Bonus honey every 50 points
         if (this.score % 50 === 0) {
@@ -269,6 +402,17 @@ class BeeGame {
             flower.remove();
             this.flowers.splice(index, 1);
         }, 500);
+    }
+
+    getFlowerColor(flowerEmoji) {
+        const flowerColors = {
+            '🌻': 'yellow',
+            '🌸': 'pink',
+            '🌺': 'red',
+            '🌷': 'purple',
+            '🌹': 'rose'
+        };
+        return flowerColors[flowerEmoji] || 'unknown';
     }
 
     collectPowerUp(powerUp, index) {
@@ -324,13 +468,19 @@ class BeeGame {
     clearFlowers() {
         this.flowers.forEach(flower => flower.remove());
         this.powerUps.forEach(powerUp => powerUp.remove());
+        this.enhancements.predators.forEach(predator => predator.remove());
+        this.enhancements.pollenTrails.forEach(trail => trail.remove());
+
         this.flowers = [];
         this.powerUps = [];
+        this.enhancements.predators = [];
+        this.enhancements.pollenTrails = [];
     }
 
     updateDisplay() {
         this.scoreElement.textContent = this.score;
         this.honeyElement.textContent = this.honey;
+        this.enhancements.updateAllDisplays();
     }
 
     endGame() {
@@ -340,8 +490,12 @@ class BeeGame {
         // Clear intervals
         clearInterval(this.flowerInterval);
         clearInterval(this.powerUpInterval);
+        clearInterval(this.weatherInterval);
+        clearInterval(this.predatorInterval);
+        clearInterval(this.windInterval);
         clearInterval(this.timerInterval);
         clearInterval(this.collisionInterval);
+        clearInterval(this.trailInterval);
 
         // Update high score
         const highScore = this.getHighScore();
@@ -349,6 +503,12 @@ class BeeGame {
             localStorage.setItem('beeGameHighScore', this.score);
             this.highScoreElement.textContent = this.score;
         }
+
+        // Update leaderboard
+        this.enhancements.updateLeaderboard(this.score, this.enhancements.nectar);
+
+        // Save enhancements data
+        this.enhancements.saveSavedData();
 
         // Show game over screen
         this.showGameOver();
@@ -359,7 +519,9 @@ class BeeGame {
                 window.Telegram.WebApp.sendData(JSON.stringify({
                     type: 'game_result',
                     score: this.score,
-                    honey: this.honey
+                    honey: this.honey,
+                    nectar: Math.floor(this.enhancements.nectar),
+                    mode: this.enhancements.currentMode
                 }));
             } catch (e) {
                 console.log('Could not send data to Telegram');
@@ -375,7 +537,10 @@ class BeeGame {
             <h2>🐝 Game Over!</h2>
             <p>🌻 Score: ${this.score}</p>
             <p>🍯 Honey: ${this.honey}</p>
+            <p>🧪 Nectar: ${Math.floor(this.enhancements.nectar)}</p>
+            <p>🎮 Mode: ${this.enhancements.currentMode.toUpperCase()}</p>
             <button class="tg-button" onclick="location.reload()">Play Again</button>
+            <button class="tg-button" onclick="location.reload()">View Menu</button>
         `;
 
         this.gameArea.appendChild(gameOver);

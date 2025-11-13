@@ -9,23 +9,103 @@
 </head>
 <body>
     <div class="game-container">
+        <!-- Enhanced Game Header with Energy and Combo -->
         <div class="game-header">
-            <div class="score">🌻 Flowers: <span id="score">0</span></div>
-            <div class="timer">⏱️ Time: <span id="timer">60</span>s</div>
+            <div class="top-row">
+                <div class="score">🌻 Score: <span id="score">0</span></div>
+                <div class="timer">⏱️ Time: <span id="timer">60</span>s</div>
+            </div>
+            <div class="energy-bar">
+                <div class="energy-label">⚡ Energy</div>
+                <div class="energy-container">
+                    <div class="energy-fill" id="energyFill"></div>
+                </div>
+            </div>
+            <div class="combo-display" id="comboDisplay" style="display: none;">
+                🔥 Combo x<span id="comboCount">2</span>
+            </div>
+            <div class="nectar-display">
+                🧪 Nectar: <span id="nectar">0</span>
+            </div>
         </div>
 
+        <!-- Enhanced Game Area -->
         <div class="game-area" id="gameArea">
             <div class="bee" id="bee">🐝</div>
+            <div class="pollen-trail" id="pollenTrail"></div>
+            <div class="weather-overlay" id="weatherOverlay" style="display: none;"></div>
         </div>
 
+        <!-- Enhanced Game Controls -->
         <div class="game-controls">
             <button id="startBtn" class="tg-button">Start Game</button>
             <button id="pauseBtn" class="tg-button" style="display: none;">Pause</button>
+            <button id="hiveBtn" class="hive-button" style="display: none;">🏠 Return to Hive</button>
         </div>
 
+        <!-- Enhanced Game Stats -->
         <div class="game-stats">
             <div>🏆 High Score: <span id="highScore">0</span></div>
             <div>🍯 Honey: <span id="honey">0</span></div>
+            <div>⚡ Speed: <span id="speedLevel">1</span></div>
+            <div>🧲 Magnet: <span id="magnetLevel">1</span></div>
+        </div>
+
+        <!-- Upgrade Shop -->
+        <div class="upgrade-shop" id="upgradeShop" style="display: none;">
+            <h3>🛠️ Upgrades</h3>
+            <div class="upgrade-item">
+                <span>⚡ Speed Level <span id="upgradeSpeed">1</span></span>
+                <button class="upgrade-btn" data-upgrade="speed">Upgrade (🧪<span id="speedCost">10</span>)</button>
+            </div>
+            <div class="upgrade-item">
+                <span>🧲 Magnet Level <span id="upgradeMagnet">1</span></span>
+                <button class="upgrade-btn" data-upgrade="magnet">Upgrade (🧪<span id="magnetCost">15</span>)</button>
+            </div>
+            <div class="upgrade-item">
+                <span>🛡️ Shield Duration <span id="upgradeShield">0</span>s</span>
+                <button class="upgrade-btn" data-upgrade="shield">Upgrade (🧪<span id="shieldCost">20</span>)</button>
+            </div>
+            <button id="closeShop" class="close-btn">✕</button>
+        </div>
+
+        <!-- Daily Challenges -->
+        <div class="daily-challenges" id="dailyChallenges" style="display: none;">
+            <h3>🎯 Daily Challenges</h3>
+            <div class="challenge-item" id="challenge1"></div>
+            <div class="challenge-item" id="challenge2"></div>
+            <div class="challenge-item" id="challenge3"></div>
+            <button id="closeChallenges" class="close-btn">✕</button>
+        </div>
+
+        <!-- Mode Selection -->
+        <div class="mode-selection" id="modeSelection" style="display: none;">
+            <h3>🎮 Game Mode</h3>
+            <button class="mode-btn" data-mode="classic">🌻 Classic</button>
+            <button class="mode-btn" data-mode="rush">⚡ Time Rush</button>
+            <button class="mode-btn" data-mode="survival">🛡️ Survival</button>
+        </div>
+
+        <!-- Leaderboard -->
+        <div class="leaderboard" id="leaderboard" style="display: none;">
+            <h3>🏆 Leaderboard</h3>
+            <div class="leaderboard-list" id="leaderboardList"></div>
+            <button id="closeLeaderboard" class="close-btn">✕</button>
+        </div>
+
+        <!-- Bee Skins -->
+        <div class="bee-skins" id="beeSkins" style="display: none;">
+            <h3>🎨 Bee Skins</h3>
+            <div class="skin-grid" id="skinGrid"></div>
+            <button id="closeSkins" class="close-btn">✕</button>
+        </div>
+
+        <!-- Menu Buttons -->
+        <div class="menu-buttons" id="menuButtons">
+            <button class="menu-btn" id="upgradeBtn">🛠️ Upgrades</button>
+            <button class="menu-btn" id="challengesBtn">🎯 Challenges</button>
+            <button class="menu-btn" id="leaderboardBtn">🏆 Leaderboard</button>
+            <button class="menu-btn" id="skinsBtn">🎨 Skins</button>
         </div>
 
         <div class="sound-controls">
@@ -51,6 +131,7 @@
     </div>
 
     <script src="sounds.js"></script>
+    <script src="game-enhancements.js"></script>
     <script src="game.js"></script>
 </body>
 </html>
